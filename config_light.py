@@ -9,8 +9,4 @@ CONFIG = {
         "socks_host": "127.0.0.1",
         "socks_port": 9443
     },
-    "telegram": {
-        "bot_token": "", 
-        "chat_id": ""      
-    }
 }

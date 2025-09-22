@@ -1,4 +1,4 @@
-#!/usr/bin/env python3 
+#!/usr/bin/env python3
 import asyncio
 import logging
 import socket
@@ -14,12 +14,8 @@ except ImportError:
 # --- НАСТРОЙКИ (РЕДАКТИРОВАТЬ ЗДЕСЬ) ---
 BOT_TOKEN = ""
 CHAT_ID = ""
-<<<<<<< HEAD
 # Вставьте сюда ваш Telegram User ID, полученный от @userinfobot. Это ВАЖНО для безопасности!
 ALLOWED_USER_ID = ""
-=======
-ALLOWED_USER_ID = ""  # !!! ЗАМЕНИТЕ НА СВОЙ ID !!!
->>>>>>> edaeefb (initial commit)
 
 RESTART_INTERVAL_SECONDS = 5 * 3600  # 5 часов
 VK_TUNNEL_COMMAND = [
@@ -27,6 +23,23 @@ VK_TUNNEL_COMMAND = [
     "--ws-origin=0", "--host=127.0.0.1", "--port=8080",
     "--ws-ping-interval=30"
 ]
+
+# <<< ИЗМЕНЕНИЕ 1: Проверка конфигурации при старте >>>
+# -------------------------------------------------------------------
+if not all([BOT_TOKEN, CHAT_ID, ALLOWED_USER_ID]):
+    print("!!! КРИТИЧЕСКАЯ ОШИБКА !!!", file=sys.stderr)
+    print("Пожалуйста, откройте скрипт и заполните переменные BOT_TOKEN, CHAT_ID и ALLOWED_USER_ID.", file=sys.stderr)
+    sys.exit(1)
+
+try:
+    # Сразу преобразуем в число для корректных сравнений
+    ALLOWED_USER_ID = int(ALLOWED_USER_ID)
+except (ValueError, TypeError):
+    print("!!! КРИТИЧЕСКАЯ ОШИБКА !!!", file=sys.stderr)
+    print("ALLOWED_USER_ID должен быть числом (например: 123456789), а не текстом.", file=sys.stderr)
+    sys.exit(1)
+# -------------------------------------------------------------------
+
 
 # --- КОНФИГУРАЦИЯ ЛОГОВ ---
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s [%(name)s] %(message)s", stream=sys.stdout)
@@ -36,7 +49,6 @@ log_telegram = logging.getLogger("telegram")
 
 # --- ГЛОБАЛЬНОЕ СОСТОЯНИЕ ---
 STATE = {'notification_sent': False}
-# Событие для сигнализации о ручном перезапуске
 manual_restart_event = asyncio.Event()
 
 def get_server_info():
@@ -52,7 +64,6 @@ def get_server_info():
 SERVER_IP, SERVER_HOSTNAME = get_server_info()
 
 async def send_telegram_message(text: str, chat_id=None):
-    """Отправляет сообщение. По умолчанию в основной чат, но можно указать другой."""
     target_chat_id = chat_id or CHAT_ID
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {'chat_id': target_chat_id, 'text': text, 'parse_mode': 'Markdown'}
@@ -67,14 +78,11 @@ async def send_telegram_message(text: str, chat_id=None):
         log_telegram.error(f"Исключение при отправке в Telegram: {e}")
 
 async def monitor_stream(stream: asyncio.StreamReader):
-    """Читает лог процесса и отправляет WSS-ключ."""
     while True:
         line_bytes = await stream.readline()
         if not line_bytes: break
-
         line = line_bytes.decode('utf-8', errors='ignore').strip()
         log_vktunnel.info(line)
-
         if not STATE['notification_sent'] and line.startswith("wss:"):
             try:
                 wss_url = line.split(maxsplit=1)[1]
@@ -96,34 +104,41 @@ async def listen_for_telegram_commands():
     log.info("Запуск слушателя команд Telegram...")
     while True:
         try:
-            url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates"
-            params = {'offset': last_update_id + 1, 'timeout': 30}
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, params=params, timeout=40) as response:
-                    if response.status != 200:
-                        log.error(f"Ошибка API Telegram: {response.status}")
-                        await asyncio.sleep(10)
-                        continue
+            # <<< ИЗМЕНЕНИЕ 2: Оборачиваем сетевой запрос в гарантированный тайм-аут >>>
+            async with asyncio.timeout(60): # Если весь блок займет больше 60с - прервется
+                url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates"
+                params = {'offset': last_update_id + 1, 'timeout': 50} # Сам запрос ждет до 50с
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url, params=params) as response:
+                        if response.status != 200:
+                            log.error(f"Ошибка API Telegram: {response.status}")
+                            await asyncio.sleep(10)
+                            continue
 
-                    data = await response.json()
-                    for update in data.get("result", []):
-                        last_update_id = update["update_id"]
-                        message = update.get("message")
-                        if message and "text" in message:
-                            user_id = message["from"]["id"]
-                            chat_id = message["chat"]["id"]
-                            command = message["text"].strip()
+                        data = await response.json()
+                        for update in data.get("result", []):
+                            last_update_id = update["update_id"]
+                            message = update.get("message")
+                            if message and "text" in message:
+                                user_id = message["from"]["id"]
+                                chat_id = message["chat"]["id"]
+                                command = message["text"].strip()
 
-                            if command == "/restart-tunnel":
-                                if user_id == ALLOWED_USER_ID:
-                                    log.info(f"Получена команда /restart-tunnel от разрешенного пользователя {user_id}.")
-                                    await send_telegram_message("✅ Принято! Инициирую перезапуск туннеля...", chat_id=chat_id)
-                                    manual_restart_event.set()
-                                else:
-                                    log.warning(f"Отклонена команда /restart-tunnel от НЕАВТОРИЗОВАННОГО пользователя {user_id}.")
-                                    await send_telegram_message("❌ Доступ запрещен.", chat_id=chat_id)
+                                log.info(f"Получено сообщение '{command}' от пользователя {user_id}")
+                                if command == "/restart-tunnel":
+                                    if user_id == ALLOWED_USER_ID:
+                                        log.info(f"Команда принята от разрешенного пользователя {user_id}.")
+                                        await send_telegram_message("✅ Принято! Инициирую перезапуск туннеля...", chat_id=chat_id)
+                                        manual_restart_event.set()
+                                    else:
+                                        log.warning(f"Отклонена команда от НЕАВТОРИЗОВАННОГО пользователя {user_id} (ожидался {ALLOWED_USER_ID}).")
+                                        await send_telegram_message("❌ Доступ запрещен.", chat_id=chat_id)
+        except asyncio.TimeoutError:
+            log.warning("Тайм-аут при запросе к Telegram API. Повторяю запрос...")
+            # Ничего страшного, просто идем на следующую итерацию цикла
+            continue
         except Exception as e:
-            log.error(f"Ошибка в слушателе Telegram: {e}. Перезапуск через 10 секунд...")
+            log.error(f"Критическая ошибка в слушателе Telegram: {e}. Перезапуск через 10 секунд...")
             await asyncio.sleep(10)
 
 
@@ -147,7 +162,6 @@ async def manage_vk_tunnel_lifecycle():
         monitor_stdout_task = asyncio.create_task(monitor_stream(process.stdout))
         monitor_stderr_task = asyncio.create_task(monitor_stream(process.stderr))
 
-        # Ждём одного из трёх событий: процесс упал, сработал таймер, пришла команда
         wait_process_task = asyncio.create_task(process.wait())
         wait_timer_task = asyncio.create_task(asyncio.sleep(RESTART_INTERVAL_SECONDS))
         wait_command_task = asyncio.create_task(manual_restart_event.wait())
@@ -157,7 +171,6 @@ async def manage_vk_tunnel_lifecycle():
             return_when=asyncio.FIRST_COMPLETED
         )
 
-        # Определяем причину перезапуска
         if wait_process_task in done:
             log.warning(f"Процесс vk-tunnel (PID: {process.pid}) завершился сам с кодом {process.returncode}. Перезапускаем...")
         elif wait_timer_task in done:
@@ -165,11 +178,9 @@ async def manage_vk_tunnel_lifecycle():
         elif wait_command_task in done:
             log.info(f"Ручная команда. Перезапуск vk-tunnel (PID: {process.pid})...")
 
-        # Чистим оставшиеся задачи
         for task in pending:
             task.cancel()
 
-        # Убиваем процесс
         if process.returncode is None:
             try:
                 process.terminate()
@@ -180,7 +191,6 @@ async def manage_vk_tunnel_lifecycle():
                 process.kill()
                 await process.wait()
 
-        # Отменяем задачи чтения логов
         monitor_stdout_task.cancel()
         monitor_stderr_task.cancel()
 
@@ -200,9 +210,3 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         log.info("Менеджер остановлен пользователем.")
-
-
-
-
-
-

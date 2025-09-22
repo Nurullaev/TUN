@@ -7,6 +7,6 @@ CONFIG = {
     },
     "client": {
         "socks_host": "127.0.0.1",
-        "socks_port": 9443
+        "socks_port": 1080
     },
 }

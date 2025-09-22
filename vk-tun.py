@@ -13,8 +13,9 @@ except ImportError:
 
 # --- НАСТРОЙКИ (РЕДАКТИРОВАТЬ ЗДЕСЬ) ---
 BOT_TOKEN = ""
+# ID группы, или ваш ID для пересылки сообщений
 CHAT_ID = ""
-# Вставьте сюда ваш Telegram User ID, полученный от @userinfobot. Это ВАЖНО для безопасности!
+# Вставьте сюда ваш Telegram User ID, полученный от @userinfobot (нужно для ввода команд). 
 ALLOWED_USER_ID = ""
 
 RESTART_INTERVAL_SECONDS = 5 * 3600  # 5 часов
@@ -91,7 +92,7 @@ async def monitor_stream(stream: asyncio.StreamReader):
                     f"🚀 *VK Tunnel запущен/перезапущен*\n\n"
                     f"🖥️ *Сервер:* `{SERVER_HOSTNAME}`\n"
                     f"🌐 *IP:* `{SERVER_IP}`\n\n"
-                    f"📒 *Инструкция подключения: *\n https://github.com/Hopper65S/VK-TUN/blob/main/README.md"
+                    f"📒 *Инструкция подключения: *\n https://github.com/Hopper65S/VK-TUN/blob/main/README.md\n\n"
                     f"✨ *Команда для подключения:*\n`python client.py --wss {wss_url}`"
                 )
                 await send_telegram_message(message)

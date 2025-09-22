@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ws_gateway_light.py
+# ws_gateway_light.py !
 import asyncio, json, socket, logging, os
 import websockets
 

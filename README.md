@@ -165,9 +165,9 @@
 
 </details>
 
-
-<summary><b>📱 Для Termux (Android)</b></summary>
 <details>
+<summary><b>📱 Для Termux (Android)</b></summary>
+
 1.  **Откройте Termux.**
 
 2.  **Установите необходимые инструменты**:

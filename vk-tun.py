@@ -91,6 +91,7 @@ async def monitor_stream(stream: asyncio.StreamReader):
                     f"🚀 *VK Tunnel запущен/перезапущен*\n\n"
                     f"🖥️ *Сервер:* `{SERVER_HOSTNAME}`\n"
                     f"🌐 *IP:* `{SERVER_IP}`\n\n"
+                    f"📒 *Инструкция подключения: *\n https://github.com/Hopper65S/VK-TUN/blob/main/README.md"
                     f"✨ *Команда для подключения:*\n`python client.py --wss {wss_url}`"
                 )
                 await send_telegram_message(message)

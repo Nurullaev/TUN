@@ -14,8 +14,12 @@ except ImportError:
 # --- НАСТРОЙКИ (РЕДАКТИРОВАТЬ ЗДЕСЬ) ---
 BOT_TOKEN = ""
 CHAT_ID = ""
+<<<<<<< HEAD
 # Вставьте сюда ваш Telegram User ID, полученный от @userinfobot. Это ВАЖНО для безопасности!
 ALLOWED_USER_ID = ""
+=======
+ALLOWED_USER_ID = ""  # !!! ЗАМЕНИТЕ НА СВОЙ ID !!!
+>>>>>>> edaeefb (initial commit)
 
 RESTART_INTERVAL_SECONDS = 5 * 3600  # 5 часов
 VK_TUNNEL_COMMAND = [

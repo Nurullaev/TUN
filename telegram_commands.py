@@ -7,15 +7,29 @@ import subprocess
 from typing import Optional, Dict, Any
 
 import aiohttp
+from admin import AdminManager  # Добавляем импорт
 
 log = logging.getLogger("telegram")
 
 class TelegramCommandHandler:
     def __init__(self, bot_token: str, allowed_user_id: int, state: Dict[str, Any]):
         self.bot_token = bot_token
-        self.allowed_user_id = allowed_user_id
+        self.owner_id = allowed_user_id  # Главный администратор (владелец)
         self.state = state
         self.manual_restart_event = asyncio.Event()
+        self.admin_manager = AdminManager()  # Создаем менеджер администраторов
+        
+        # Добавляем владельца в администраторы при первом запуске
+        if allowed_user_id not in self.admin_manager.admins:
+            self.admin_manager.add_admin(allowed_user_id)
+    
+    def is_admin(self, user_id: int) -> bool:
+        """Проверка прав администратора"""
+        return self.admin_manager.is_admin(user_id)
+    
+    def is_owner(self, user_id: int) -> bool:
+        """Проверка, является ли пользователь владельцем"""
+        return user_id == self.owner_id
 
     async def send_message(self, text: str, chat_id: str):
         """Отправка сообщения в Telegram"""
@@ -97,9 +111,62 @@ class TelegramCommandHandler:
 
     async def handle_command(self, command: str, chat_id: str, user_id: int):
         """Обработка команды"""
-        # Проверка доступа для критичных команд
+        # Команды управления администраторами (только для владельца)
+        if command.startswith("/add-admin"):
+            if not self.is_owner(user_id):
+                await self.send_message("❌ Только владелец может добавлять администраторов", chat_id)
+                return
+            
+            parts = command.split()
+            if len(parts) != 2:
+                await self.send_message("❌ Использование: `/add-admin USER_ID`", chat_id)
+                return
+            
+            try:
+                new_admin_id = int(parts[1])
+                success, message = self.admin_manager.add_admin(new_admin_id)
+                if success:
+                    await self.send_message(f"✅ {message}", chat_id)
+                else:
+                    await self.send_message(f"⚠️ {message}", chat_id)
+            except ValueError:
+                await self.send_message("❌ USER_ID должен быть числом", chat_id)
+        
+        elif command.startswith("/remove-admin"):
+            if not self.is_owner(user_id):
+                await self.send_message("❌ Только владелец может удалять администраторов", chat_id)
+                return
+            
+            parts = command.split()
+            if len(parts) != 2:
+                await self.send_message("❌ Использование: `/remove-admin USER_ID`", chat_id)
+                return
+            
+            try:
+                admin_id = int(parts[1])
+                if admin_id == self.owner_id:
+                    await self.send_message("❌ Нельзя удалить владельца из администраторов", chat_id)
+                    return
+                
+                success, message = self.admin_manager.remove_admin(admin_id)
+                if success:
+                    await self.send_message(f"✅ {message}", chat_id)
+                else:
+                    await self.send_message(f"⚠️ {message}", chat_id)
+            except ValueError:
+                await self.send_message("❌ USER_ID должен быть числом", chat_id)
+        
+        elif command == "/admin-list":
+            if not self.is_admin(user_id):
+                await self.send_message("❌ Доступ запрещен", chat_id)
+                return
+            
+            admin_info = self.admin_manager.get_admin_info()
+            await self.send_message(admin_info, chat_id)
+        
+        # Проверка доступа для критичных команд (теперь для всех администраторов)
         restricted_commands = ['/restart-tunnel', '/restart-server', '/status', '/log']
-        if command in restricted_commands and user_id != self.allowed_user_id:
+        if command in restricted_commands and not self.is_admin(user_id):
             await self.send_message("❌ Доступ запрещен.", chat_id)
             return
 
@@ -191,7 +258,16 @@ class TelegramCommandHandler:
 /status - Статус vk-tunnel
 /log - Последние 20 строк лога
 /restart-tunnel - Перезапустить vk-tunnel
-/restart-server - Перезапустить server.py"""
+/restart-server - Перезапустить server.py
+/admin-list - Список администраторов"""
+            
+            if self.is_owner(user_id):
+                help_text += """
+
+*Команды владельца:*
+/add-admin USER_ID - Добавить администратора
+/remove-admin USER_ID - Удалить администратора"""
+            
             await self.send_message(help_text, chat_id)
 
         else:

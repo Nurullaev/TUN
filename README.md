@@ -250,11 +250,12 @@ python3 client.py -wss {URL}
 Добавьте их командой: /add-admin 123456789
 Посмотреть список администраторов: /admin-list
 Удалить администратора: /remove-admin 123456789
-Файлы проекта
-**vk_tunnel_manager.py - основной менеджер туннеля**
-**telegram_commands.py - обработчик команд Telegram**
-**admin.py - система управления администраторами**
-**server.py - SOCKS5 сервер**
-**client.py - SOCKS5 клиент**
-**config_light.py - файл конфигурации**
-**admins.json - список администраторов (создается автоматически)**
+
+### Файлы проекта
+**vk_tunnel_manager.py** - основной менеджер туннеля
+**telegram_commands.py** - обработчик команд Telegram
+**admin.py** - система управления администраторами
+**server.py** - SOCKS5 сервер
+**client.py** - SOCKS5 клиент
+**config_light.py** - файл конфигурации
+**admins.json** - список администраторов (создается автоматически)

@@ -304,7 +304,6 @@ python3 client.py -wss {URL}
 
 
 ```bash
-# Клонируем весь репозиторий
 git clone [https://github.com/Hopper65S/VK-TUN](https://github.com/Hopper65S/VK-TUN) .
 ```
 # Переходим в папку с Remnawave (Auto-Host)

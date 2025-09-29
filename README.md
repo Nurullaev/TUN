@@ -382,9 +382,9 @@ docker-compose logs -f
 ```
 
 # Конфиг для клиента VLESS
-
+```text
 vless://ваш-uuid-клиента@tunnel.vk-apps.com:443?encryption=none&security=tls&sni=tunnel.vk-apps.com&alpn=h3%2Ch2%2Chttp%2F1.1&fp=chrome&type=ws&host=tunnel.vk-apps.com&path=%2Fws#VK-TUNNEL
-
+```
 
 # Параметры клиентского конфига:
 

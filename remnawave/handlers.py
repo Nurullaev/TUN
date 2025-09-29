@@ -7,7 +7,23 @@ import aiohttp
 from admin import AdminManager
 
 log = logging.getLogger("telegram")
+class MemoryLogHandler(logging.Handler):
+    def __init__(self, capacity=1000):
+        super().__init__()
+        self.capacity = capacity
+        self.buffer = []
+        
+    def emit(self, record):
+        self.buffer.append(self.format(record))
+        if len(self.buffer) > self.capacity:
+            self.buffer.pop(0)
+    
+    def get_logs(self, count=20):
+        return self.buffer[-count:]
 
+memory_handler = MemoryLogHandler(capacity=1000)
+memory_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s"))
+logging.getLogger().addHandler(memory_handler)
 class TelegramCommandHandler:
     def __init__(self, bot_token: str, allowed_user_id: int, state: Dict[str, Any]):
         self.bot_token = bot_token
@@ -170,24 +186,36 @@ class TelegramCommandHandler:
             else:
                 await self.send_message("❌ Процесс vk-tunnel не запущен.", chat_id)
 
-        elif command == "/log":
-            try:
-                with open('manager.log', 'r', encoding='utf-8') as f:
-                    lines = f.readlines()
-
-                last_lines = lines[-20:]
-                if not last_lines:
-                    await self.send_message("ℹ️ Лог-файл пока пуст.", chat_id)
-                    return
-
-                log_output = "".join(last_lines)
-                response_text = f"📄 *Последние 20 строк из лога:*\n\n```{log_output}```"
-                await self.send_message(response_text, chat_id)
-
-            except FileNotFoundError:
-                await self.send_message("⚠️ Лог-файл еще не создан.", chat_id)
-            except Exception as e:
-                await self.send_message(f"❌ Не удалось прочитать лог-файл: {e}", chat_id)
+        elif command.startswith("/log"):
+            if not self.is_admin(user_id):
+                await self.send_message("❌ Доступ запрещен", chat_id)
+                return
+            
+            # Определяем количество строк (по умолчанию 20)
+            lines = 20
+            if ' ' in command:
+                try:
+                    lines = int(command.split(' ')[1])
+                    if lines > 100:  # Ограничение максимума
+                        lines = 100
+                except ValueError:
+                    pass
+            
+            # Получаем логи из памяти
+            log_lines = memory_handler.get_logs(lines)
+            
+            if log_lines:
+                log_output = "\n".join(log_lines)
+                
+                # Обрезаем по размеру для Telegram
+                if len(log_output) > 4000:
+                    log_output = "...\n" + log_output[-3990:]
+                
+                response_text = f"📄 *Последние {len(log_lines)} строк логов:*\n\n```\n{log_output}\n```"
+            else:
+                response_text = "ℹ️ Лог-буфер пуст."
+            
+            await self.send_message(response_text, chat_id)
 
         elif command == "/help":
             help_text = """📋 *Доступные команды:*

@@ -1,0 +1,24 @@
+services:
+  vk-tunnel-manager:
+    build: .
+    container_name: vk-tunnel-manager
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - CHAT_ID=${CHAT_ID}
+      - ALLOWED_USER_ID=${ALLOWED_USER_ID}
+      - API_TOKEN=${API_TOKEN}
+      - API_DOMAIN=${API_DOMAIN}
+      - CONFIG_UUID=${CONFIG_UUID}
+      - CONFIG_PROFILE_UUID=${CONFIG_PROFILE_UUID}
+      - CONFIG_PROFILE_INBOUND_UUID=${CONFIG_PROFILE_INBOUND_UUID}
+      - HEALTH_CHECK_INTERVAL_SECONDS=${HEALTH_CHECK_INTERVAL_SECONDS}
+      - TUNNEL_PORT=${TUNNEL_PORT}
+    volumes:
+      - ./logs:/app/logs
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -375,11 +375,18 @@ async def manage_vk_tunnel_lifecycle():
             # Дополнительная проверка: убедимся, что PID мёртв
             await asyncio.sleep(2)  # Задержка для ОС
             if psutil.pid_exists(process.pid):
-                log.error(f"Процесс {process.pid} всё ещё жив! Принудительное убийство через os.kill...")
+                log.error(f"Процесс {process.pid} всё ещё жив! Принудительное убийство через psutil...")
                 try:
-                    os.kill(process.pid, signal.SIGKILL)
-                except OSError:
-                    log.info(f"Процесс {process.pid} уже мёртв (OSError).")
+                    p = psutil.Process(process.pid)
+                    p.kill()  # Эквивалент SIGKILL
+                    p.wait(timeout=5)  # Ждём завершения
+                    log.info(f"Процесс {process.pid} успешно убит через psutil.")
+                except psutil.NoSuchProcess:
+                    log.info(f"Процесс {process.pid} уже не существует.")
+                except psutil.TimeoutExpired:
+                    log.warning(f"Таймаут при ожидании завершения {process.pid}.")
+                except Exception as e:
+                    log.error(f"Ошибка при убийстве через psutil: {e}")
 
         log.info("Пауза 10 секунд перед перезапуском...")
         await asyncio.sleep(10)

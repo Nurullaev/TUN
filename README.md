@@ -310,12 +310,6 @@ git clone [https://github.com/Hopper65S/VK-TUN](https://github.com/Hopper65S/VK-
 ```bash
 cd "remnawave(auto-host)"
 ```
-```bash
-git clone https://github.com/Hopper65S/VK-TUN
-```
-```bash
-cd "remnawave(auto-host)"
-```
 ### Шаг 2: Настройка переменных окружения
 📝 Откройте файл .env и заполните следующие данные:
 

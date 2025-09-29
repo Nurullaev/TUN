@@ -337,7 +337,7 @@ TUNNEL_PORT=порт_для_туннеля
 🐳 Соберите и запустите Docker Compose:
 
 ```bash
-docker-compose up --build -d
+docker compose up --build -d
 ```
 
 ## Шаг 4: Проверка работы

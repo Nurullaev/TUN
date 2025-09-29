@@ -380,8 +380,11 @@ docker-compose logs -f
 # Конфиг для клиента VLESS
 
 vless://ваш-uuid-клиента@tunnel.vk-apps.com:443?encryption=none&security=tls&sni=tunnel.vk-apps.com&alpn=h3%2Ch2%2Chttp%2F1.1&fp=chrome&type=ws&host=tunnel.vk-apps.com&path=%2Fws#VK-TUNNEL
-Параметры клиентского конфига:
 
+
+# Параметры клиентского конфига:
+
+```yml
 UUID: Ваш уникальный идентификатор клиента
 Адрес: tunnel.vk-apps.com
 Порт: 443
@@ -391,7 +394,7 @@ ALPN: h3,h2,http/1.1
 Fingerprint: chrome
 Тип: WebSocket
 Безопасность: TLS
-
+```
 </details>
 ### Файлы проекта
 

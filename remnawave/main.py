@@ -4,6 +4,7 @@ import socket
 import sys
 import time
 import json
+import psutil
 from asyncio.subprocess import PIPE
 from logging.handlers import TimedRotatingFileHandler
 from api import update_api_host
@@ -255,10 +256,10 @@ async def manage_vk_tunnel_lifecycle():
             await asyncio.sleep(5)
             continue
             
-        # Проверяем количество падений
-        if STATE['total_crashes'] >= 3:
+        # Проверяем количество падений (увеличим лимит до 5 для большей устойчивости)
+        if STATE['total_crashes'] >= 5:
             await send_telegram_message(
-                "❌ *Туннель упал 3 раза*\n\n"
+                "❌ *Туннель упал 5 раз*\n\n"
                 "Автоматический перезапуск отключен.\n"
                 "Используйте /start для запуска вручную."
             )
@@ -298,11 +299,11 @@ async def manage_vk_tunnel_lifecycle():
             continue
 
         # Создаем задачи мониторинга
-        monitor_stdout_task = asyncio.create_task(monitor_stream(process.stdout))
-        monitor_stderr_task = asyncio.create_task(monitor_stream(process.stderr))
+        monitor_stdout_task = asyncio.create_task(monitor_stream(process.stdout, "stdout"))
+        monitor_stderr_task = asyncio.create_task(monitor_stream(process.stderr, "stderr"))
         health_check_task = asyncio.create_task(check_tunnel_health())
 
-        # Создаем задачи ожидания событий
+        # Создаем задачи ожидания событий (ЭТО ИСПРАВЛЕНИЕ: задачи определяются здесь, перед asyncio.wait)
         wait_process_task = asyncio.create_task(process.wait())
         wait_command_task = asyncio.create_task(telegram_handler.manual_restart_event.wait())
         wait_start_task = asyncio.create_task(telegram_handler.start_event.wait())
@@ -317,7 +318,7 @@ async def manage_vk_tunnel_lifecycle():
         reason = "неизвестная причина"
         if wait_process_task in done:
             STATE['total_crashes'] += 1
-            reason = f"процесс завершился сам с кодом {process.returncode} (падение {STATE['total_crashes']}/3)"
+            reason = f"процесс завершился сам с кодом {process.returncode} (падение {STATE['total_crashes']}/5)"
             await send_telegram_message(f"⚠️ *Туннель упал*\n\nПричина: {reason}\nПерезапускаю...")
         elif wait_command_task in done:
             reason = "получена команда перезапуска"
@@ -327,7 +328,7 @@ async def manage_vk_tunnel_lifecycle():
             STATE['total_crashes'] = 0  # Сбрасываем счетчик при ручном запуске
         elif health_check_task in done:
             STATE['total_crashes'] += 1
-            reason = f"health check обнаружил проблему (падение {STATE['total_crashes']}/3)"
+            reason = f"health check обнаружил проблему (падение {STATE['total_crashes']}/5)"
 
         log.warning(f"Инициирован перезапуск vk-tunnel (PID: {process.pid}). Причина: {reason}.")
 
@@ -346,19 +347,42 @@ async def manage_vk_tunnel_lifecycle():
             return_exceptions=True
         )
 
-        # Завершаем процесс, если он еще работает
+        # Улучшенный раздел убийства процесса
         if process.returncode is None:
+            log.warning(f"Пытаюсь убить процесс {process.pid}...")
             try:
+                # Сначала SIGTERM
                 process.terminate()
                 await asyncio.wait_for(process.wait(), timeout=5)
-                log.info(f"Процесс {process.pid} успешно завершен (terminate).")
+                log.info(f"Процесс {process.pid} успешно завершен (SIGTERM).")
             except asyncio.TimeoutError:
-                log.warning(f"Процесс {process.pid} не ответил на terminate. Убиваем (kill)...")
+                log.warning(f"Процесс {process.pid} не ответил на SIGTERM. Пытаюсь SIGKILL...")
                 process.kill()
-                await process.wait()
+                await asyncio.wait_for(process.wait(), timeout=5)
+                log.info(f"Процесс {process.pid} успешно убит (SIGKILL).")
+            except Exception as e:
+                log.error(f"Ошибка при убийстве процесса {process.pid}: {e}. Принудительное убийство через psutil...")
+                # Fallback через psutil для надёжности
+                try:
+                    p = psutil.Process(process.pid)
+                    p.terminate()
+                    p.wait(timeout=5)
+                except (psutil.NoSuchProcess, psutil.TimeoutExpired):
+                    log.info(f"Процесс {process.pid} уже не существует.")
+                except Exception as kill_e:
+                    log.critical(f"Не удалось убить процесс {process.pid}: {kill_e}. Возможно, требуется ручное вмешательство.")
 
-        log.info("Пауза 5 секунд перед перезапуском...")
-        await asyncio.sleep(5)
+            # Дополнительная проверка: убедимся, что PID мёртв
+            await asyncio.sleep(2)  # Задержка для ОС
+            if psutil.pid_exists(process.pid):
+                log.error(f"Процесс {process.pid} всё ещё жив! Принудительное убийство через os.kill...")
+                try:
+                    os.kill(process.pid, signal.SIGKILL)
+                except OSError:
+                    log.info(f"Процесс {process.pid} уже мёртв (OSError).")
+
+        log.info("Пауза 10 секунд перед перезапуском...")
+        await asyncio.sleep(10)
 
 async def main():
     """Главная функция"""

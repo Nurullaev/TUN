@@ -33,7 +33,7 @@ VK_TUNNEL_COMMAND = [
     "--ws-ping-interval=30"
 ]
 VPN_CONFIG = {
-    "uuid": "5c47363f-81b4-4e8e-88f1-852bb253acec",
+    "uuid": os.getenv("CONFIG_UUID"),
     "inbound": {
         "configProfileUuid": os.getenv("CONFIG_PROFILE_UUID"),
         "configProfileInboundUuid": os.getenv("CONFIG_PROFILE_INBOUND_UUID")
